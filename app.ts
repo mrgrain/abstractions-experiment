@@ -46,9 +46,7 @@ export class AbstractionsStack extends cdk.Stack {
     /**
      * Setup a dashboard with widgets for all used resources
      */
-    const dashboard = new cloudwatch.Dashboard(this, "Dashboard", {
-      dashboardName: "Observability",
-    });
+    const dashboard = new cloudwatch.Dashboard(this, "Dashboard");
     dashboard.addWidgets(
       new cloudwatch.GraphWidget({
         title: 'Processed Messages',
