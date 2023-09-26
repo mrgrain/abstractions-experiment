@@ -11,15 +11,10 @@ export class AbstractionsStack extends cdk.Stack {
     super(scope, id, props);
 
     /**
-     * Encrypt everything with this key
-     */
-    const key = new kms.Key(this, "Key");
-
-    /**
      * A topic will receive data from somewhere
      */
-    const sourceTopic = new sns.Topic(this, "Topic", {
-      masterKey: key,
+    const sourceTopic = new sns.Topic(this, "IncomingMessages", {
+      masterKey: new kms.Key(this, "TopicKey"),
     });
 
 
@@ -27,13 +22,13 @@ export class AbstractionsStack extends cdk.Stack {
      * Subscribe the topic to a queue, using a filter
      * other messages will go onto the DLQ
      */
-    const targetQueue = new sqs.Queue(this, "Queue", {
+    const targetQueue = new sqs.Queue(this, "AcceptedMessages", {
       visibilityTimeout: cdk.Duration.seconds(300),
-      encryptionMasterKey: key,
+      encryptionMasterKey: new kms.Key(this, "AcceptedQueueKey"),
     });
 
-    const dlq = new sqs.Queue(this, "SubDlq", {
-      encryptionMasterKey: key,
+    const dlq = new sqs.Queue(this, "FilteredMessages", {
+      encryptionMasterKey: new kms.Key(this, "FilteredQueueKey"),
     });
 
     sourceTopic.addSubscription(
