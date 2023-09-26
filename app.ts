@@ -69,4 +69,4 @@ export class AbstractionsStack extends cdk.Stack {
 }
 
 const app = new cdk.App();
-new AbstractionsStack(app, "MyStack", {});
+new AbstractionsStack(app, "YogaAbstractionsStack", {});
