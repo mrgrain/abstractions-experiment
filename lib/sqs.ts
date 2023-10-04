@@ -35,12 +35,11 @@ export function selectPolicy(queue: L1Queue, autoCreate = true): sqs.QueuePolicy
 }
 
 /**
- * Provide a custom resource policy to be used
+ * Setter for resource policy
  */
 export function resourcePolicy(queue: L1Queue, policy: sqs.QueuePolicy): sqs.L1Queue {
-  queue.wit
-
-  return policy;
+  queue.policy = policy;
+  return queue;
 }
 
 
@@ -60,15 +59,48 @@ export function enforceSSL(queue: L1Queue): L1Queue {
   return queue;
 }
 
-export function encrypt(queue: L1Queue, key?: kms.Key): L1Queue {
+interface KeyRef {
+  keyArn: string;
+}
+
+interface QueueEncryptionProps {
+  dataKeyReuse?: cdk.Duration
+}
+
+
+/**
+ * @param queue The subject
+ * @param key The object
+ * @param props Additional configuration 
+ * @returns 
+ */
+export function encrypt(queue: L1Queue, key?: KeyRef, props?: QueueEncryptionProps): L1Queue {
   if (!key) {
     return queue.withProperties({
-      kmsMasterKeyId: "alias/aws/sqs",
-      // kmsDataKeyReusePeriodSeconds: props.dataKeyReuse &&
-      //   props.dataKeyReuse.toSeconds(),
+      sqsManagedSseEnabled: true,
     });
   }
-  return queue;
+
+  return encryptWithKey(queue, key, props);
+}
+
+/**
+ * @param queue The subject
+ * @param key The object
+ * @param props Additional configuration 
+ * @returns 
+ */
+export function encryptWithKey(queue: L1Queue, key?: KeyRef, props: QueueEncryptionProps = {}): L1Queue {
+  if (!key) {
+    key = new kms.Key(queue, 'Key', {
+      description: `Created by ${queue.node.path}`,
+    });
+  }
+
+  return queue.withProperties({
+    kmsMasterKeyId: key.keyArn,
+    kmsDataKeyReusePeriodSeconds: props.dataKeyReuse && props.dataKeyReuse.toSeconds(),
+  });
 }
 
 type EncryptModifier = (queue: L1Queue, key?: Key) => L1Queue;
@@ -126,7 +158,7 @@ export class L1Queue extends L1Resource {
     return modifier(this, ...args);
   }
 
-  public useEncrypt(key?: Key): L1Queue {
-    return encrypt(this, key);
+  public useEncryptWithKey(key?: Key): L1Queue {
+    return encryptWithKey(this, key);
   }
 }
