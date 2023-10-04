@@ -51,7 +51,7 @@ export function enforceSSL(queue: L1Queue): L1Queue {
       Bool: { "aws:SecureTransport": "false" },
     },
     effect: iam.Effect.DENY,
-    resources: [queue.attrArn],
+    resources: [queue.queueArn],
     principals: [new iam.AnyPrincipal()],
   });
 
@@ -77,8 +77,9 @@ export const EncryptModifier = encrypt;
 type QueueModifier = (queue: L1Queue, ...args: any[]) => L1Queue;
 
 export class L1Queue extends L1Resource {
-  public readonly attrArn: string;
-  public readonly attrQueueName: string;
+  public readonly queueArn: string;
+  public readonly queueName: string;
+  public readonly queueUrl: string;
 
   private _policy: sqs.QueuePolicy;
 
@@ -87,8 +88,9 @@ export class L1Queue extends L1Resource {
       type: "AWS::SQS::Queue",
     });
 
-    this.attrArn = cdk.Token.asString(this.getAtt("Arn", cdk.ResolutionTypeHint.STRING));
-    this.attrQueueName = cdk.Token.asString(this.getAtt("QueueName", cdk.ResolutionTypeHint.STRING));
+    this.queueArn = cdk.Token.asString(this.getAtt("Arn", cdk.ResolutionTypeHint.STRING));
+    this.queueName = cdk.Token.asString(this.getAtt("QueueName", cdk.ResolutionTypeHint.STRING));
+    this.queueUrl = cdk.Token.asString(this.getAtt("QueueUrl", cdk.ResolutionTypeHint.STRING));
   }
 
   public get policy(): sqs.QueuePolicy {
