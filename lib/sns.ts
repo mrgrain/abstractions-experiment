@@ -3,6 +3,8 @@ import { Names } from "npm:aws-cdk-lib/core";
 import { Construct } from "npm:constructs";
 import { L1Resource } from "./core.ts";
 
+export { SubscriptionFilter } from "npm:aws-cdk-lib/aws-sns";
+
 export function encrypt(topic: L1Topic, key?: Key): L1Topic {
     if (!key) {
         key = new Key(topic, 'EncryptionKey');

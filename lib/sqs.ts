@@ -13,6 +13,15 @@ export function visibilityTimeout(
   });
 }
 
+export function visibilityTimeoutStrict(
+  duration: cdk.Duration,
+): StrictQueueModifier {
+  return (queue: L1Queue) =>
+    queue.withProperties({
+      visibilityTimeout: duration.toSeconds(),
+    });
+}
+
 /**
  * Queues are encrypted by default, this disables the encryption
  */
@@ -25,23 +34,38 @@ export function unencrypted(queue: L1Queue): L1Queue {
 /**
  * Selector/Creator for sub-resource
  */
-export function selectPolicy(queue: L1Queue, autoCreate = true): sqs.QueuePolicy {
-  const policy = queue.node.tryFindChild('Policy');
+export function selectPolicy(
+  queue: L1Queue,
+  autoCreate = true,
+): sqs.QueuePolicy {
+  const policy = queue.node.tryFindChild("Policy");
   if (!policy && autoCreate) {
-    return new sqs.QueuePolicy(queue, 'Policy', { queues: [queue] });
+    return new sqs.QueuePolicy(queue, "Policy", { queues: [queue] });
   }
 
   return policy;
 }
 
-/**
- * Setter for resource policy
- */
-export function resourcePolicy(queue: L1Queue, policy: sqs.QueuePolicy): sqs.L1Queue {
-  queue.policy = policy;
-  return queue;
+export function resourcePolicyStatement(
+  statement: iam.PolicyStatement,
+): StrictQueueModifier {
+  return (queue: L1Queue) => queue.addToResourcePolicy(statement);
 }
 
+export function grantSendMessage(topicArn: string): StrictQueueModifier {
+  return (queue: L1Queue) => {
+    return resourcePolicyStatement(
+      new iam.PolicyStatement({
+        resources: [queue.queueArn],
+        actions: ["sqs:SendMessage"],
+        principals: [new iam.ServicePrincipal("sns.amazonaws.com")],
+        conditions: {
+          ArnEquals: { "aws:SourceArn": topicArn },
+        },
+      }),
+    );
+  };
+}
 
 export function enforceSSL(queue: L1Queue): L1Queue {
   const statement = new iam.PolicyStatement({
@@ -64,17 +88,20 @@ interface KeyRef {
 }
 
 interface QueueEncryptionProps {
-  dataKeyReuse?: cdk.Duration
+  dataKeyReuse?: cdk.Duration;
 }
-
 
 /**
  * @param queue The subject
  * @param key The object
- * @param props Additional configuration 
- * @returns 
+ * @param props Additional configuration
+ * @returns
  */
-export function encrypt(queue: L1Queue, key?: KeyRef, props?: QueueEncryptionProps): L1Queue {
+export function encrypt(
+  queue: L1Queue,
+  key?: KeyRef,
+  props?: QueueEncryptionProps,
+): L1Queue {
   if (!key) {
     return queue.withProperties({
       sqsManagedSseEnabled: true,
@@ -87,25 +114,38 @@ export function encrypt(queue: L1Queue, key?: KeyRef, props?: QueueEncryptionPro
 /**
  * @param queue The subject
  * @param key The object
- * @param props Additional configuration 
- * @returns 
+ * @param props Additional configuration
+ * @returns
  */
-export function encryptWithKey(queue: L1Queue, key?: KeyRef, props: QueueEncryptionProps = {}): L1Queue {
+export function encryptWithKey(
+  queue: L1Queue,
+  key?: KeyRef,
+  props: QueueEncryptionProps = {},
+): L1Queue {
   if (!key) {
-    key = new kms.Key(queue, 'Key', {
+    key = new kms.Key(queue, "Key", {
       description: `Created by ${queue.node.path}`,
     });
   }
 
   return queue.withProperties({
     kmsMasterKeyId: key.keyArn,
-    kmsDataKeyReusePeriodSeconds: props.dataKeyReuse && props.dataKeyReuse.toSeconds(),
+    kmsDataKeyReusePeriodSeconds: props.dataKeyReuse &&
+      props.dataKeyReuse.toSeconds(),
   });
+}
+
+export function encryptWithKeyStrict(
+  key?: KeyRef,
+  props: QueueEncryptionProps = {},
+): StrictQueueModifier {
+  return (queue: L1Queue) => encryptWithKey(queue, key, props);
 }
 
 type EncryptModifier = (queue: L1Queue, key?: Key) => L1Queue;
 export const EncryptModifier = encrypt;
 
+type StrictQueueModifier = (queue: L1Queue) => L1Queue;
 type QueueModifier = (queue: L1Queue, ...args: any[]) => L1Queue;
 
 export class L1Queue extends L1Resource {
@@ -120,9 +160,15 @@ export class L1Queue extends L1Resource {
       type: "AWS::SQS::Queue",
     });
 
-    this.queueArn = cdk.Token.asString(this.getAtt("Arn", cdk.ResolutionTypeHint.STRING));
-    this.queueName = cdk.Token.asString(this.getAtt("QueueName", cdk.ResolutionTypeHint.STRING));
-    this.queueUrl = cdk.Token.asString(this.getAtt("QueueUrl", cdk.ResolutionTypeHint.STRING));
+    this.queueArn = cdk.Token.asString(
+      this.getAtt("Arn", cdk.ResolutionTypeHint.STRING),
+    );
+    this.queueName = cdk.Token.asString(
+      this.getAtt("QueueName", cdk.ResolutionTypeHint.STRING),
+    );
+    this.queueUrl = cdk.Token.asString(
+      this.getAtt("QueueUrl", cdk.ResolutionTypeHint.STRING),
+    );
   }
 
   public get policy(): sqs.QueuePolicy {
@@ -135,7 +181,7 @@ export class L1Queue extends L1Resource {
 
   public set policy(policy: sqs.QueuePolicy): sqs.QueuePolicy {
     this._policy = policy;
-  }  
+  }
 
   public addToResourcePolicy(
     statement: iam.PolicyStatement,
