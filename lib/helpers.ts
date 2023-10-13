@@ -15,7 +15,8 @@ export function templateForStack(stack: cdk.Stack): Record<string, any> {
 }
 
 export function templateForConstructs(
-  ...constructs: Construct[]
+  constructs: Construct[],
+  deep: boolean,
 ): Record<string, any> {
   const stack = cdk.Stack.of(constructs[0]);
   const template = templateForStack(cdk.Stack.of(constructs[0]));
@@ -23,10 +24,12 @@ export function templateForConstructs(
     return template;
   }
 
-  const relevant = constructs.flatMap((c) =>
-    c.node.findAll()
-      .filter((c) => cdk.CfnElement.isCfnElement(c))
-      .map((c) => stack.getLogicalId(c))
+  const relevant = constructs.flatMap((parent) =>
+    deep
+      ? parent.node.findAll()
+        .filter((child) => cdk.CfnElement.isCfnElement(child))
+        .map((child) => stack.getLogicalId(child))
+      : parent.node.id
   );
 
   for (const logicalId of Object.keys(template.Resources)) {
@@ -52,10 +55,14 @@ export function clean(template: Record<string, any>): Record<string, any> {
   return template;
 }
 
-export function toYaml(...constructs: Construct[]): string {
-  return stringify(templateForConstructs(...constructs).Resources);
+export function toYaml(constructs: Construct[], deep = true): string {
+  return stringify(templateForConstructs(constructs, deep).Resources);
 }
 
 export function print(...constructs: Construct[]): void {
-  return console.log(toYaml(...constructs));
+  return console.log(toYaml(constructs));
+}
+
+export function printOnly(...constructs: Construct[]): void {
+  return console.log(toYaml(constructs, false));
 }

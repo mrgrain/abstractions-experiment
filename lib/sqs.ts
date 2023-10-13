@@ -3,6 +3,7 @@ import * as iam from "npm:aws-cdk-lib/aws-iam";
 import * as kms from "npm:aws-cdk-lib/aws-kms";
 import * as sqs from "npm:aws-cdk-lib/aws-sqs";
 import { L1Resource } from "./core.ts";
+import { IConstruct } from "npm:constructs";
 
 export function visibilityTimeout(
   queue: L1Queue,
@@ -63,24 +64,31 @@ export function grantSendMessage(topicArn: string): StrictQueueModifier {
           ArnEquals: { "aws:SourceArn": topicArn },
         },
       }),
-    );
+    )(queue);
   };
 }
 
-export function enforceSSL(queue: L1Queue): L1Queue {
-  const statement = new iam.PolicyStatement({
-    actions: ["sqs:*"],
-    conditions: {
-      Bool: { "aws:SecureTransport": "false" },
-    },
-    effect: iam.Effect.DENY,
-    resources: [queue.queueArn],
-    principals: [new iam.AnyPrincipal()],
-  });
+// export function enforceSSL(queue: L1Queue): L1Queue;
+export function enforceSSL(construct: IConstruct): IConstruct {
+  const addPolicy = (queue) => {
+    const statement = new iam.PolicyStatement({
+      actions: ["sqs:*"],
+      conditions: {
+        Bool: { "aws:SecureTransport": "false" },
+      },
+      effect: iam.Effect.DENY,
+      resources: [queue.queueArn],
+      principals: [new iam.AnyPrincipal()],
+    });
+    selectPolicy(queue, true).document.addStatements(statement);
+  };
 
-  selectPolicy(queue, true).document.addStatements(statement);
+  construct.node
+    .findAll()
+    .filter(L1Queue.isL1Queue)
+    .map(addPolicy);
 
-  return queue;
+  return construct;
 }
 
 interface KeyRef {
@@ -149,6 +157,14 @@ type StrictQueueModifier = (queue: L1Queue) => L1Queue;
 type QueueModifier = (queue: L1Queue, ...args: any[]) => L1Queue;
 
 export class L1Queue extends L1Resource {
+  public static type = "AWS::SQS::Queue";
+  public static isL1Queue(construct: IConstruct): IConstruct {
+    return (
+      cdk.CfnResource.isCfnResource(construct) &&
+      construct.cfnResourceType === L1Queue.type
+    );
+  }
+
   public readonly queueArn: string;
   public readonly queueName: string;
   public readonly queueUrl: string;
@@ -157,7 +173,7 @@ export class L1Queue extends L1Resource {
 
   public constructor(scope: Construct, id: string) {
     super(scope, id, {
-      type: "AWS::SQS::Queue",
+      type: L1Queue.type,
     });
 
     this.queueArn = cdk.Token.asString(
