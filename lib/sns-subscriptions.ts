@@ -6,6 +6,10 @@ import { L1Queue, grantSendMessage } from './sqs.ts';
 import { L1Topic } from './sns.ts';
 
 export class L1Subscription extends L1Resource {
+  public get topicArn(): string {
+    return this.cfnProperties.topicArn;
+  }
+
   public constructor(scope: Construct, id: string) {
     super(scope, id, {
       type: "AWS::SNS::Subscription",
@@ -18,7 +22,7 @@ export class L1Subscription extends L1Resource {
 }
 export type SubscriptionModifier = (queue: L1Subscription) => L1Subscription;
 
-export function deadLetterQueue(deadLetterQueue: L1Queue): L1Subscription {
+export function deadLetterQueue(deadLetterQueue: L1Queue): SubscriptionModifier {
   return (subscription: L1Subscription) => {
     grantSendMessage(subscription.topicArn)(deadLetterQueue);
 
@@ -31,7 +35,7 @@ export function deadLetterQueue(deadLetterQueue: L1Queue): L1Subscription {
 }
 
 export function filterMessages(
-  policy: { [key: string]: SubscriptionFilter },
+  policy: { [key: string]: sns.SubscriptionFilter },
 ): SubscriptionModifier {
   return (subscription: L1Subscription) =>
     subscription.withProperties({
@@ -52,6 +56,7 @@ export function connect(topic: L1Topic, queue: L1Queue): SubscriptionModifier {
     subscription.node.addDependency(queue.policy);
 
     return subscription.withProperties({
+      topicArn: topic.topicArn,
       endpoint: queue.queueArn,
       protocol: sns.SubscriptionProtocol.SQS,
       region: topicRegion(),

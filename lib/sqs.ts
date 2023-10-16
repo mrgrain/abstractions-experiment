@@ -3,7 +3,7 @@ import * as iam from "npm:aws-cdk-lib/aws-iam";
 import * as kms from "npm:aws-cdk-lib/aws-kms";
 import * as sqs from "npm:aws-cdk-lib/aws-sqs";
 import { L1Resource } from "./core.ts";
-import { IConstruct } from "npm:constructs";
+import { Construct, IConstruct } from "npm:constructs";
 
 export function visibilityTimeout(
   queue: L1Queue,
@@ -39,18 +39,21 @@ export function selectPolicy(
   queue: L1Queue,
   autoCreate = true,
 ): sqs.QueuePolicy {
-  const policy = queue.node.tryFindChild("Policy");
+  const policy = queue.node.tryFindChild("Policy") as sqs.QueuePolicy;
   if (!policy && autoCreate) {
-    return new sqs.QueuePolicy(queue, "Policy", { queues: [queue] });
+    return new sqs.QueuePolicy(queue, "Policy", { queues: [queue as any] });
   }
 
-  return policy;
+  return policy!;
 }
 
 export function resourcePolicyStatement(
   statement: iam.PolicyStatement,
 ): StrictQueueModifier {
-  return (queue: L1Queue) => queue.addToResourcePolicy(statement);
+  return (queue: L1Queue) => {
+    queue.addToResourcePolicy(statement);
+    return queue;
+  }
 }
 
 export function grantSendMessage(topicArn: string): StrictQueueModifier {
@@ -70,7 +73,7 @@ export function grantSendMessage(topicArn: string): StrictQueueModifier {
 
 // export function enforceSSL(queue: L1Queue): L1Queue;
 export function enforceSSL(construct: IConstruct): IConstruct {
-  const addPolicy = (queue) => {
+  const addPolicy = (queue: L1Queue) => {
     const statement = new iam.PolicyStatement({
       actions: ["sqs:*"],
       conditions: {
@@ -86,7 +89,7 @@ export function enforceSSL(construct: IConstruct): IConstruct {
   construct.node
     .findAll()
     .filter(L1Queue.isL1Queue)
-    .map(addPolicy);
+    .map((q) => addPolicy(q));
 
   return construct;
 }
@@ -150,7 +153,7 @@ export function encryptWithKeyStrict(
   return (queue: L1Queue) => encryptWithKey(queue, key, props);
 }
 
-type EncryptModifier = (queue: L1Queue, key?: Key) => L1Queue;
+type EncryptModifier = (queue: L1Queue, key?: kms.Key) => L1Queue;
 export const EncryptModifier = encrypt;
 
 type StrictQueueModifier = (queue: L1Queue) => L1Queue;
@@ -158,7 +161,7 @@ type QueueModifier = (queue: L1Queue, ...args: any[]) => L1Queue;
 
 export class L1Queue extends L1Resource {
   public static type = "AWS::SQS::Queue";
-  public static isL1Queue(construct: IConstruct): IConstruct {
+  public static isL1Queue(construct: IConstruct): construct is L1Queue {
     return (
       cdk.CfnResource.isCfnResource(construct) &&
       construct.cfnResourceType === L1Queue.type
@@ -169,7 +172,7 @@ export class L1Queue extends L1Resource {
   public readonly queueName: string;
   public readonly queueUrl: string;
 
-  private _policy: sqs.QueuePolicy;
+  private _policy?: sqs.QueuePolicy;
 
   public constructor(scope: Construct, id: string) {
     super(scope, id, {
@@ -195,32 +198,30 @@ export class L1Queue extends L1Resource {
     return this._policy;
   }
 
-  public set policy(policy: sqs.QueuePolicy): sqs.QueuePolicy {
+  public set policy(policy: sqs.QueuePolicy) {
     this._policy = policy;
   }
 
   public addToResourcePolicy(
     statement: iam.PolicyStatement,
-  ): iam.AddToResourcePolicyResult {
-    if (!this.policy && this.autoCreatePolicy) {
-      this.policy = new QueuePolicy(this, "Policy", { queues: [this] });
+  ): void {
+    if (!this.policy) {
+      this.policy = new sqs.QueuePolicy(this, "Policy", { queues: [this as any] });
     }
 
     if (this.policy) {
       this.policy.document.addStatements(statement);
-      return { statementAdded: true, policyDependable: this.policy };
     }
 
-    return { statementAdded: false };
   }
 
   public with(modifier: QueueModifier, ...args: any[]): L1Queue;
-  public with(modifier: EncryptModifier, key?: Key): L1Queue;
+  public with(modifier: EncryptModifier, key?: kms.Key): L1Queue;
   public with(modifier: QueueModifier, ...args: any[]): L1Queue {
     return modifier(this, ...args);
   }
 
-  public useEncryptWithKey(key?: Key): L1Queue {
+  public useEncryptWithKey(key?: kms.Key): L1Queue {
     return encryptWithKey(this, key);
   }
 }

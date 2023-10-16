@@ -1,11 +1,12 @@
 import { IConstruct } from "npm:constructs";
-import { cdk, kms, nb, sns, sqs, sub } from "./index.ts";
+import { cdk, cloudwatch, kms, nb, sns, sqs, sub } from "./index.ts";
 
 // Libs
 globalThis.stack = nb.stack();
 globalThis.print = nb.print;
 globalThis.printOnly = nb.printOnly;
 globalThis.cdk = cdk;
+globalThis.cw = cloudwatch;
 globalThis.kms = kms;
 globalThis.sqs = sqs;
 globalThis.sns = sns;

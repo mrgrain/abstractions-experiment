@@ -27,7 +27,7 @@ export function templateForConstructs(
   const relevant = constructs.flatMap((parent) =>
     deep
       ? parent.node.findAll()
-        .filter((child) => cdk.CfnElement.isCfnElement(child))
+        .filter(cdk.CfnElement.isCfnElement)
         .map((child) => stack.getLogicalId(child))
       : parent.node.id
   );

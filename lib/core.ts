@@ -1,9 +1,17 @@
 import { CfnResource, CfnResourceProps } from "npm:aws-cdk-lib/core";
+import { Construct, IConstruct } from "npm:constructs";
+
+export abstract class VirtualResource extends Construct {
+  public constructor(scope: Construct, id: string) {
+    scope.node.tryRemoveChild(id);
+    super(scope, id);
+  }
+}
 
 export abstract class L1Resource extends CfnResource {
   private modifierStack = new Array<{ [key: string]: any }>(); // add priorities here
 
-  public constructor(scope, id: string, props: CfnResourceProps) {
+  public constructor(scope: IConstruct, id: string, props: CfnResourceProps) {
     scope.node.tryRemoveChild(id);
     super(scope, id, props);
   }
