@@ -1,12 +1,39 @@
 import { CfnResource, CfnResourceProps } from "npm:aws-cdk-lib/core";
 import { Construct, IConstruct } from "npm:constructs";
+import { deepMerge } from "https://deno.land/std@0.204.0/collections/deep_merge.ts";
 
 export abstract class VirtualResource extends Construct {
+  private modifierStack = new Array<{ [key: string]: any }>(); // add priorities here
+
   public constructor(scope: Construct, id: string) {
     scope.node.tryRemoveChild(id);
     super(scope, id);
   }
+
+  protected get props(): L1Props {
+    // @todo sort by priority    
+    return this.finally(this.modifierStack.reduce((props, current) => deepMerge(props, current, {
+      arrays: "merge",
+    }), {}));
+  }
+
+  public withProperties(props: { [key: string]: any }) {
+    this.modifierStack.push(props);
+    return this;
+  }
+
+  protected finally(props: L1Props): L1Props {
+    return props;
+  }
+
+  public toJson(): any {
+    return this.props;
+  }
 }
+
+export type L1Props = {
+  [key: string]: any;
+};
 
 export abstract class L1Resource extends CfnResource {
   private modifierStack = new Array<{ [key: string]: any }>(); // add priorities here
@@ -21,15 +48,14 @@ export abstract class L1Resource extends CfnResource {
     return this;
   }
 
-  protected get cfnProperties(): {
-    [key: string]: any;
-  } {
-    // @todo
-    // deep-merge
-    // sort by priority
-    return this.modifierStack.reduce((props, current) => ({
-      ...props,
-      ...current,
-    }), {});
+  protected get cfnProperties(): L1Props {
+    // @todo sort by priority
+    return this.finally(this.modifierStack.reduce((props, current) => deepMerge(props, current, {
+      arrays: "merge",
+    }), {}));
+  }
+
+  protected finally(props: L1Props): L1Props {
+    return props;
   }
 }
