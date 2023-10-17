@@ -53,7 +53,7 @@ export abstract class L1Resource extends CfnResource {
     // @todo sort by priority
     return this.finally(this.modifierStack.reduce((props, current) => deepMerge(props, current, {
       arrays: "merge",
-    }), {}));
+    }), this._cfnProperties));
   }
 
   protected finally(props: L1Props): L1Props {

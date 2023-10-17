@@ -1,5 +1,5 @@
 import { IConstruct } from "npm:constructs";
-import { cdk, cloudwatch, kms, nb, sns, sqs, sub } from "./index.ts";
+import { cdk, cloudwatch, kms, magic, nb, sns, sqs, sub } from "./index.ts";
 
 // Libs
 globalThis.stack = nb.stack();
@@ -11,15 +11,16 @@ globalThis.kms = kms;
 globalThis.sqs = sqs;
 globalThis.sns = sns;
 globalThis.sub = sub;
-globalThis.any = (
-  predicate: (construct: IConstruct) => IConstruct,
-  modifier: <T>(construct: T) => T,
-): <T>(construct: T) => T => {
+globalThis.magic = magic;
+globalThis.any = <T extends IConstruct>(
+  predicate: (construct: IConstruct) => construct is T,
+  modifier: (construct: T) => T,
+): (construct: T) => T => {
   return (construct) => {
     construct.node
       .findAll()
       .filter(predicate)
-      .map(modifier);
+      .map((c) => modifier(c));
 
     return construct;
   };
