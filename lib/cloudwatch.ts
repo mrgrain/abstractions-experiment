@@ -84,6 +84,8 @@ export class L1Dashboard extends L1Resource {
 export type DashboardModifier = (dashboard: L1Dashboard) => L1Dashboard;
 
 export function widget(widget: L1GraphWidget) {
-  return (dashboard: L1Dashboard) =>
+  return (dashboard: L1Dashboard) => {
     dashboard.addRow(new cloudwatch.Row(widget));
+    return dashboard;
+  };
 }

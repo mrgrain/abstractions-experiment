@@ -1,4 +1,5 @@
 import { CfnResource, CfnResourceProps } from "npm:aws-cdk-lib/core";
+import * as cloudwatch from "npm:aws-cdk-lib/aws-cloudwatch";
 import { Construct, IConstruct } from "npm:constructs";
 import { deepMerge } from "https://deno.land/std@0.204.0/collections/deep_merge.ts";
 
@@ -57,5 +58,9 @@ export abstract class L1Resource extends CfnResource {
 
   protected finally(props: L1Props): L1Props {
     return props;
+  }
+
+  public metric(metric: (subject: L1Resource) => cloudwatch.Metric): cloudwatch.Metric {
+    return metric(this);
   }
 }

@@ -1,4 +1,5 @@
 import * as cdk from "npm:aws-cdk-lib/core";
+import * as cloudwatch from "npm:aws-cdk-lib/aws-cloudwatch";
 import * as iam from "npm:aws-cdk-lib/aws-iam";
 import * as kms from "npm:aws-cdk-lib/aws-kms";
 import * as sqs from "npm:aws-cdk-lib/aws-sqs";
@@ -224,4 +225,25 @@ export class L1Queue extends L1Resource {
   public useEncryptWithKey(key?: kms.Key): L1Queue {
     return encryptWithKey(this, key);
   }
+}
+
+
+type QueueMetric = (topic: L1Queue) => cloudwatch.Metric;
+
+export function metric(metricName: string, props?: cloudwatch.MetricOptions): QueueMetric {
+  return (queue) => new cloudwatch.Metric({
+    "namespace": "AWS/SQS",
+    "metricName": metricName,
+    "dimensionsMap": {
+      "QueueName": queue.queueName
+    },
+    ...props
+  }).attachTo(queue);
+}
+
+export function metricNumberOfMessagesReceived(props?: cloudwatch.MetricOptions): QueueMetric {
+  return metric("NumberOfMessagesReceived", {
+    "statistic": "Sum",
+    ...props
+  });
 }
